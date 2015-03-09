@@ -41,6 +41,7 @@ server : dirs $(SERVER_OBJS)
 	
 clean:
 	rm -rf obj/
+	rm -rf lesen-*
 	
 dirs:
 	mkdir -p $(OBJ_DIRS)

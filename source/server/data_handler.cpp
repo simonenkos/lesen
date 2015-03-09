@@ -8,11 +8,14 @@
 #include <common/logger.hpp>
 #include <server/data_handler.hpp>
 
+#define MAX_EXPIRIES_COUNT 10
+#define READ_TIMEOUT       1000 // ms
+
 data_handler::data_handler(lesen::io_service_ptr io_service_ptr,
                            const boost::asio::ip::tcp::endpoint & endpoint,
                            const std::string & output_file_name,
                            unsigned long long file_size) : acceptor(io_service_ptr, endpoint)
-                                                         , session(nullptr)
+                                                         , session(nullptr, READ_TIMEOUT)
                                                          , std::thread(&data_handler::process, this)
                                                          , io_service_ptr_(io_service_ptr)
                                                          , transfer_is_over_(false)
@@ -46,7 +49,8 @@ int data_handler::put(unsigned char * data_ptr, unsigned size)
 
    if (file_size_ <= 0)
    {
-      transfer_is_over_ = true;
+      stop();
+      io_service_ptr_->stop();
       return 0;
    }
    return size;
@@ -67,4 +71,5 @@ void data_handler::process()
 {
    accept(true);
    io_service_ptr_->run();
+   transfer_is_over_ = true;
 };

@@ -9,7 +9,10 @@
 
 #define BUFFER_SIZE 1500
 
-session::session(lesen::socket_ptr socket_ptr) : socket_ptr_(socket_ptr)
+session::session(lesen::socket_ptr socket_ptr,
+                 unsigned read_timeout) : socket_ptr_(socket_ptr)
+                                        , read_timeout_(read_timeout)
+                                        , is_stopped_(true)
 {
    tx_buffer = new unsigned char [BUFFER_SIZE];
    rx_buffer = new unsigned char [BUFFER_SIZE];
@@ -24,16 +27,24 @@ session::~session()
 };
 
 /**
- * To start data transfer.
+ * Method allows to start data transfer.
  */
 void session::start(bool rx_first)
 {
    assert(socket_ptr_);
+   is_stopped_ = false;
+
+   // Setting up deadline timer. Read operation can be blocked for a long time
+   // because there will be no incoming data.
+
+   read_timer_ptr_ = std::make_shared<boost::asio::deadline_timer>(socket_ptr_->get_io_service());
+   read_timer_ptr_->async_wait(std::bind(&session::read_expiry, this));
+
    rx_first ? do_read() : do_write();
 };
 
 /**
- * To update socket with a new one and start data transfer.
+ * Method allows to update socket with a new one and start data transfer.
  */
 void session::start(lesen::socket_ptr socket_ptr, bool rx_first)
 {
@@ -47,24 +58,47 @@ void session::start(lesen::socket_ptr socket_ptr, bool rx_first)
    start(rx_first);
 };
 
+void session::stop()
+{
+   if (!is_stopped_)
+   {
+      is_stopped_ = true;
+
+      if (socket_ptr_ && socket_ptr_->is_open())
+      {
+         socket_ptr_->close();
+      }
+      if (read_timer_ptr_) read_timer_ptr_->cancel();
+   }
+};
+
 void session::do_read()
 {
+   if (is_stopped_) return;
+
    socket_ptr_->async_read_some
    (
          boost::asio::buffer(rx_buffer, BUFFER_SIZE),
          [this](const boost::system::error_code & error, std::size_t length)
          {
-            if (!error)
+            if (error != boost::asio::error::operation_aborted)
+            {
+               read_timer_ptr_->cancel();
+            }
+            if (!is_stopped_ && !error)
             {
                if (put(rx_buffer, length) > 0) do_write();
             }
-            else socket_ptr_->cancel();
          }
    );
+
+   read_timer_ptr_->expires_from_now(boost::posix_time::milliseconds(read_timeout_));
 };
 
 void session::do_write()
 {
+   if (is_stopped_) return;
+
    int written_size = get(tx_buffer, BUFFER_SIZE);
 
    if (written_size > 0)
@@ -74,13 +108,31 @@ void session::do_write()
             boost::asio::buffer(tx_buffer, written_size),
             [this](const boost::system::error_code & error, std::size_t length)
             {
-               if (!error)
+               if (!is_stopped_ && !error)
                {
                   do_read();
                }
-               else socket_ptr_->cancel();
+               else stop();
             }
       );
    }
    else do_read();
+};
+
+void session::read_expiry()
+{
+   if (is_stopped_) return;
+
+   // Reactivate timer with current handler.
+   read_timer_ptr_->async_wait(std::bind(&session::read_expiry, this));
+
+   // Check if timer expires correctly, cause a new asynchronous operation may move the deadline.
+   if (read_timer_ptr_->expires_at() <= boost::asio::deadline_timer::traits_type::now())
+   {
+      if (socket_ptr_->is_open())
+      {
+         socket_ptr_->cancel();
+         do_write();
+      }
+   }
 };

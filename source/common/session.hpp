@@ -18,12 +18,17 @@
 class session
 {
    lesen::socket_ptr socket_ptr_;
+   lesen::timer_ptr  read_timer_ptr_;
 
    unsigned char * tx_buffer;
    unsigned char * rx_buffer;
 
+   unsigned read_timeout_;
+   bool is_stopped_;
+
 public:
-   session(lesen::socket_ptr socket_ptr);
+   session(lesen::socket_ptr socket_ptr,
+           unsigned read_timeout);
    virtual ~session();
 
    session(const session &  other) = delete;
@@ -34,6 +39,7 @@ public:
 
    void start(bool rx_first = true);
    void start(lesen::socket_ptr socket_ptr, bool rx_first = true);
+   void stop();
 
 protected:
 
@@ -53,6 +59,7 @@ protected:
 private:
    void do_read();
    void do_write();
+   void read_expiry();
 };
 
 #endif /* __LESEN__COMMON__SESSION__ */

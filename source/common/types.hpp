@@ -16,9 +16,12 @@ namespace lesen
 // Shortcuts for frequently used types.
 
 typedef std::shared_ptr<boost::asio::io_service>        io_service_ptr;
+typedef std::shared_ptr<boost::asio::deadline_timer>    timer_ptr;
 typedef std::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor_ptr;
 typedef std::shared_ptr<boost::asio::ip::tcp::resolver> resolver_ptr;
 typedef std::shared_ptr<boost::asio::ip::tcp::socket>   socket_ptr;
+
+typedef boost::asio::ip::tcp::resolver::iterator        resolver_it;
 
 } /* namespace lesen */
 

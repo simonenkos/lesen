@@ -44,7 +44,9 @@ public:
 private:
    int put(unsigned char * data_ptr, unsigned size);
    int get(unsigned char * data_ptr, unsigned size);
+
    bool on_accept(lesen::socket_ptr socket_ptr);
+
    void process();
 };
 

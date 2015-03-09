@@ -25,6 +25,7 @@ class flow_handler : protected session
 public:
    flow_handler(manager_interface_ptr interface_ptr,
                 lesen::socket_ptr socket_ptr);
+   ~flow_handler();
 
    flow_handler(const flow_handler &  other) = delete;
    flow_handler(const flow_handler && other) = delete;

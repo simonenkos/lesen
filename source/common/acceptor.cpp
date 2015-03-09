@@ -14,7 +14,9 @@ acceptor::acceptor(lesen::io_service_ptr io_service_ptr,
 };
 
 acceptor::~acceptor()
-{ };
+{
+   acceptor_ptr_->close();
+};
 
 void acceptor::accept(bool only_once)
 {
@@ -34,8 +36,8 @@ void acceptor::accept(bool only_once)
                   socket_ptr->close();
                   return;
                }
+               if (!only_once) accept(only_once);
             }
-            if (!only_once) accept(only_once);
          }
    );
 };

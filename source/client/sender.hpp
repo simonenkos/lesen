@@ -23,10 +23,8 @@ class sender : protected session
 
    std::ifstream file_stream_;
 
-   lesen::resolver_ptr   resolver_ptr_;
-   lesen::io_service_ptr io_serice_ptr_;
-
-   boost::asio::ip::tcp::resolver::iterator connection_;
+   lesen::resolver_ptr resolver_ptr_;
+   lesen::resolver_it  connection_;
 
    enum
    {

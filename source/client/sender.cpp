@@ -13,8 +13,10 @@
 #include <common/message.hpp>
 #include <client/sender.hpp>
 
+#define READ_TIMEOUT 1 // ms
+
 sender::sender(const std::string src_file,
-               const std::string dst_file) : session(nullptr)
+               const std::string dst_file) : session(nullptr, READ_TIMEOUT)
                                            , src_file_(src_file)
                                            , dst_file_(dst_file)
                                            , transfer_state_(INACTIVE)
@@ -76,7 +78,9 @@ void sender::connect()
          {
             if (!error)
             {
+               // Update information about remote endpoint.
                connection_ = iter;
+
                session::start(socket_ptr, false);
             }
             else std::cout << "Can't connect to server!" << std::endl;
@@ -104,10 +108,14 @@ int sender::put(unsigned char * data_ptr, unsigned size)
          return -1;
       }
 
+      // Reconnect session to the a given port.
+
       if (!resolve(connection_->host_name(), parameters_match[1])) return -1;
 
-      transfer_state_ = DATA;
+      stop();
       connect();
+
+      transfer_state_ = DATA;
       return 0;
    }
    return (transfer_state_ == INACTIVE) ? 0 : size;
@@ -121,6 +129,7 @@ int sender::get(unsigned char * data_ptr, unsigned size)
       {
          struct stat64 file_status;
 
+         // Get file statistics to figure out it's size.
          if (stat64(src_file_.c_str(), &file_status) < 0)
          {
             std::cout << "Can't get statistics for file: " << src_file_ << std::endl;
@@ -140,17 +149,14 @@ int sender::get(unsigned char * data_ptr, unsigned size)
 
       case DATA:
       {
-         if (!file_stream_.eof())
+         int readed = file_stream_.readsome((char *) data_ptr, size);
+
+         if (readed <= 0)
          {
-            static int counter = 0;
-
-            counter += size;
-            printf("%d/r", counter);
-            fflush(stdout);
-
-            return file_stream_.readsome((char *) data_ptr, size);
+            stop();
+            transfer_state_ = INACTIVE;
          }
-         else transfer_state_ = INACTIVE;
+         return readed;
       }
       break;
 

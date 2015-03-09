@@ -12,12 +12,19 @@
 #include <common/message.hpp>
 #include <server/flow_handler.hpp>
 
+#define READ_TIMEOUT 1000 // ms
+
 flow_handler::flow_handler(manager_interface_ptr interface_ptr,
-                           lesen::socket_ptr socket_ptr) : session(socket_ptr)
+                           lesen::socket_ptr socket_ptr) : session(socket_ptr, READ_TIMEOUT)
                                                          , manager_interface_ptr_(interface_ptr)
 {
    assert(manager_interface_ptr_);
    start();
+};
+
+flow_handler::~flow_handler()
+{
+   stop();
 };
 
 int flow_handler::put(unsigned char * data_ptr, unsigned size)
@@ -40,7 +47,7 @@ int flow_handler::put(unsigned char * data_ptr, unsigned size)
                                : (boost::format(ERROR_MESSAGE_FORMAT) % ERROR_BUSY).str();
       output_message_queue_.push(answer);
 
-      if (port > 0) return size;
+      return size;
    }
    return 0;
 };
@@ -51,6 +58,8 @@ int flow_handler::get(unsigned char * data_ptr, unsigned size)
    {
       auto answer = output_message_queue_.front();
       auto answer_size = answer.size();
+
+      output_message_queue_.pop();
 
       if (answer_size > size)
       {

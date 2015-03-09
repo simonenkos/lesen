@@ -107,7 +107,7 @@ int main(int argc, char ** argv)
    {
       try
       {
-         io_service_ptr->poll();
+         io_service_ptr->run_one();
          manager_ptr->clean_up_finished();
       }
       catch (boost::system::error_code & error)
